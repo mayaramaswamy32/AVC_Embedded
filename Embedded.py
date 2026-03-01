@@ -16,6 +16,11 @@
 # - getHeight()
 #  - .getRollPitchYaw()[2]
 # - .getValue()
+
+import smbus
+import time
+
+
 class Devices:
     DEFAULT_TIMESTEP = 32
     LEFT_MOTORS = "left wheel motor"
@@ -39,8 +44,18 @@ class Robot:
         else:
             raise ValueError("Invalid Device Type")
 
+
+class Device:
+    def __init__(self, name: str) -> None:
+        self.name = name
+
 class Motor:
     def __init__(self,name):
         self.name = name
-    def setPosition(position_value: float):
+    def setPosition(self, position_value: float):
         pass
+
+
+class Imu(Device):
+    def __init__(self, name: str):
+        super().__init__(name)
