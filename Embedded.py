@@ -17,9 +17,29 @@
 #  - .getRollPitchYaw()[2]
 # - .getValue()
 
-import smbus
+
+import board
+import busio
+import math
+import adafruit_lsm9ds1
+import RPi.GPIO as GPIO
 import time
 
+LEFT_MOTOR_1_FORWARD = 11
+LEFT_MOTOR_1_REVERSE = 12
+LEFT_MOTOR_2_FORWARD = 13
+LEFT_MOTOR_2_REVERSE = 14
+RIGHT_MOTOR_1_FORWARD = 15
+RIGHT_MOTOR_1_REVERSE = 16
+RIGHT_MOTOR_2_FORWARD = 17
+RIGHT_MOTOR_2_REVERSE = 18
+
+LEFT_MOTOR_FORWARD = [LEFT_MOTOR_1_FORWARD, LEFT_MOTOR_2_FORWARD]
+LEFT_MOTOR_REVERSE = [LEFT_MOTOR_1_REVERSE, LEFT_MOTOR_2_REVERSE]
+RIGHT_MOTOR_FORWARD = [RIGHT_MOTOR_1_FORWARD, RIGHT_MOTOR_2_FORWARD]
+RIGHT_MOTOR_REVERSE = [RIGHT_MOTOR_1_REVERSE, RIGHT_MOTOR_2_REVERSE]
+
+MAX_SPEED = 10
 
 class Devices:
     DEFAULT_TIMESTEP = 32
@@ -35,8 +55,10 @@ class Robot:
     def getBasicTimeStep(self):
         return self.timestep
     def getDevice(self, name):
-        if name == Devices.LEFT_MOTORS or name == Devices.RIGHT_MOTORS:
-            return Motor(name)
+        if name == Devices.LEFT_MOTORS:
+            return Motor(name, LEFT_MOTOR_FORWARD, LEFT_MOTOR_REVERSE, MAX_SPEED)
+        elif name == Devices.RIGHT_MOTORS:
+            return Motor(name, RIGHT_MOTOR_FORWARD, RIGHT_MOTOR_REVERSE, MAX_SPEED)
         elif name == Devices.IMU:
             return
         elif name == Devices.CAMERA:
@@ -49,14 +71,90 @@ class Device:
     def __init__(self, name: str) -> None:
         self.name = name
 
-class Motor:
-    def __init__(self,name):
-        self.name = name
+class Motor(Device):
+    def __init__(self,name, forward_gpio, reverse_gpio, MAX_SPEED):
+        
+        GPIO.setmode(GPIO.BCM)
+        
+        self.forward_gpio = forward_gpio
+        self.reverse_gpio = reverse_gpio
+        self.MAX_SPEED = MAX_SPEED
+
+        self.forward_pwm = []
+        self.reverse_pwm = []
+
+        for pin in self.forward_gpio:
+            GPIO.setup(pin, GPIO.OUT)
+            pwm = GPIO.PWM(pin, 1000)
+            pwm.start(0)
+            self.forward_pwm.append(pwm)
+
+        for pin in self.reverse_gpio:
+            GPIO.setup(pin, GPIO.OUT)
+            pwm = GPIO.PWM(pin, 1000)
+            pwm.start(0)
+            self.reverse_pwm.append(pwm)
+
     def setPosition(self, position_value: float):
         pass
+    def setVelocity(self, velocity_value: float):
+        velocity = max(min(velocity_value, self.MAX_SPEED), -self.MAX_SPEED)
+        duty_cycle = abs(velocity) / self.MAX_SPEED * 100
+
+        if velocity > 0:
+
+            for f_pwm, r_pwm in zip(self.forward_pwm, self.reverse_pwm):
+                f_pwm.ChangeDutyCycle(duty_cycle)
+                r_pwm.ChangeDutyCycle(0)
+
+        elif velocity < 0:
+
+            for f_pwm, r_pwm in zip(self.forward_pwm, self.reverse_pwm):
+                f_pwm.ChangeDutyCycle(0)
+                r_pwm.ChangeDutyCycle(duty_cycle)
+
+        else:
+
+            for f_pwm, r_pwm in zip(self.forward_pwm, self.reverse_pwm):
+                f_pwm.ChangeDutyCycle(0)
+                r_pwm.ChangeDutyCycle(0)
+
+
+import board
+import busio
+import math
+import adafruit_lsm9ds1
 
 
 class Imu(Device):
+
     def __init__(self, name: str):
         super().__init__(name)
+        i2c = busio.I2C(board.SCL, board.SDA)
+        self.sensor = adafruit_lsm9ds1.LSM9DS1_I2C(i2c)
+
+
+
+    def enable(self, timestep):
+        pass
+
+    def getRollPitchYaw(self):
+
+        accel_x, accel_y, accel_z = self.sensor.acceleration
+        mag_x, mag_y, mag_z = self.sensor.magnetic
+
         
+        roll = math.atan2(accel_y, accel_z)
+        pitch = math.atan2(-accel_x, math.sqrt(accel_y**2 + accel_z**2))
+
+        mag_x_comp = mag_x * math.cos(pitch) + mag_z * math.sin(pitch)
+
+        mag_y_comp = (
+            mag_x * math.sin(roll) * math.sin(pitch)
+            + mag_y * math.cos(roll)
+            - mag_z * math.sin(roll) * math.cos(pitch)
+        )
+
+        yaw = math.atan2(-mag_y_comp, mag_x_comp)
+
+        return (roll, pitch, yaw)
