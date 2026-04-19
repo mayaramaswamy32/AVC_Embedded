@@ -24,6 +24,8 @@ import math
 import adafruit_lsm9ds1
 import RPi.GPIO as GPIO
 import time
+from picamera2 import Picamera2
+import cv2
 
 LEFT_MOTOR_1_FORWARD = 24 #18
 LEFT_MOTOR_1_REVERSE = 10 #19
