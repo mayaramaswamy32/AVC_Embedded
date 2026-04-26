@@ -1,8 +1,8 @@
 import time
 import Embedded as emb
 
-
-left_motor = emb.Robot.getDevice("left wheel motor")
+robo = emb.Robot()
+left_motor = robo.getDevice("left wheel motor")
 
 print("Motor object created!!")
 

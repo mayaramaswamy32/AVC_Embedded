@@ -17,7 +17,7 @@
 #  - .getRollPitchYaw()[2]
 # - .getValue()
 
-
+import gpiod
 import board
 import busio
 import math
@@ -54,6 +54,7 @@ class Devices:
 class Robot:
     def __init__(self):
         self.timestep = Devices.DEFAULT_TIMESTEP
+        self.chip = gpiod.Chip('gpiochip4')
     def getBasicTimeStep(self):
         return self.timestep
     def getDevice(self, name):
@@ -67,7 +68,6 @@ class Robot:
             return Camera(name)
         else:
             raise ValueError("Invalid Device Type")
-
 
 class Device:
     def __init__(self, name: str) -> None:
